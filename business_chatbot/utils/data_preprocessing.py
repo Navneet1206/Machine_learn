@@ -9,7 +9,7 @@ def clean_text(text):
 
 def preprocess_wikipedia():
     # Specify a different storage path (e.g., D drive)
-    cache_dir = "D:/data"  # Change this to your desired path
+    cache_dir = "D:/Downloads-folder/GPT Help/Machine_learn/business_chatbot/data"  # Change this to your desired path
     
     dataset = load_dataset("wikipedia", "20220301.en", split="train", cache_dir=cache_dir, trust_remote_code=True)
     
@@ -24,7 +24,7 @@ def preprocess_wikipedia():
         processed_text.append(cleaned)
     
     # Ensure the output directory exists
-    output_dir = "D:/data/processed"  # Change this to your output path
+    output_dir = "D:/Downloads-folder/GPT Help/Machine_learn/business_chatbot/data/processed"  # Change this to your output path
     os.makedirs(output_dir, exist_ok=True)
     
     with open(os.path.join(output_dir, 'business_data.txt'), 'w') as f:

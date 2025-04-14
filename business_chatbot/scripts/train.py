@@ -19,14 +19,13 @@ def train_model():
     
     # Tokenization
     def tokenize_function(examples):
-        return tokenizer(examples['text'], truncation=True, max_length=128)
+        return tokenizer(examples['text'], padding=True, truncation=True, max_length=128)
     
     tokenized_datasets = dataset.map(tokenize_function, batched=True)
     
-    # Training arguments (without evaluation_strategy)
+    # Training arguments
     training_args = TrainingArguments(
         output_dir="models",
-        evaluation_strategy="no",  # Remove this line if you want to disable evaluation
         per_device_train_batch_size=4,
         num_train_epochs=3,
         save_steps=500,
