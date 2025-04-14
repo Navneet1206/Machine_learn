@@ -8,48 +8,41 @@ import torch
 
 class BusinessModelChatbot:
     def __init__(self):
-        # Load fine-tuned model and tokenizer
+        print("Loading model and tokenizer...")
         self.tokenizer = DistilBertTokenizer.from_pretrained("models/business_model")
         self.model = DistilBertForMaskedLM.from_pretrained("models/business_model")
 
-        # Set up fill-mask pipeline on CPU
+        # Initialize fill-mask pipeline
         self.fill_mask = pipeline(
             "fill-mask",
             model=self.model,
             tokenizer=self.tokenizer,
-            device=-1  # Use CPU
+            device=-1  # CPU only
         )
+        print("Model loaded successfully. Device set to use CPU.")
 
     def format_input(self, user_input):
         """
-        Formats the input string by adding a [MASK] token if it's missing.
+        Convert user input to a prompt compatible with fill-mask.
+        E.g., 'revenue' -> 'Revenue is [MASK].'
         """
-        user_input = user_input.strip()
-
-        if len(user_input.split()) == 1:
-            return f"What is {user_input} [MASK]?"
-
-        elif "[MASK]" not in user_input:
-            if user_input.endswith("?"):
-                return user_input[:-1].strip() + " [MASK]?"
-            else:
-                return user_input.strip() + " [MASK]"
-
-        return user_input
+        user_input = user_input.strip().rstrip("?").capitalize()
+        return f"{user_input} is [MASK]."
 
     def get_response(self, user_input):
         """
-        Gets the top prediction for the masked input.
-        Returns the best response and list of top 3 predictions.
+        Generate the best predicted response from the masked input.
         """
         masked_input = self.format_input(user_input)
         predictions = self.fill_mask(masked_input)
 
         responses = [
-            p['sequence'].replace('[CLS] ', '').replace(' [SEP]', '')
+            p['sequence'].replace('[CLS] ', '').replace(' [SEP]', '').replace('[MASK]', '').strip()
             for p in predictions[:3]
         ]
-        return responses[0], responses
+        top_response = responses[0]
+
+        return top_response, responses
 
     def start_chat(self):
         print("\n🤖 Business Model Chatbot: Ask me anything about business models!")
@@ -57,17 +50,18 @@ class BusinessModelChatbot:
         print("Type 'quit' to exit.\n")
 
         while True:
-            user_input = input("You: ").strip()
+            user_input = input("You: ")
             if user_input.lower() == 'quit':
                 print("👋 Chatbot: Goodbye!")
                 break
 
             try:
-                best_response, all_predictions = self.get_response(user_input)
+                best_response, alternatives = self.get_response(user_input)
                 print(f"Chatbot: {best_response}")
-                # Optional: show alternative suggestions
-                # for i, alt in enumerate(all_predictions[1:], 1):
-                #     print(f"  Alt {i}: {alt}")
+                # Uncomment below if you want to show alternative suggestions
+                # print("Other suggestions:")
+                # for i, alt in enumerate(alternatives[1:], 1):
+                #     print(f"  {i+1}. {alt}")
             except Exception as e:
                 print(f"⚠️ Error: {str(e)}")
 
