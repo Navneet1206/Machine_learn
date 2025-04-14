@@ -16,12 +16,18 @@ def train_model():
     
     # Load dataset
     dataset = load_dataset("text", data_files={'train': 'data/processed/business_data.txt'})
-    
+
     # Tokenization
     def tokenize_function(examples):
-        return tokenizer(examples['text'], padding=True, truncation=True, max_length=128)
-    
-    tokenized_datasets = dataset.map(tokenize_function, batched=True)
+        return tokenizer(
+            examples['text'],
+            padding="max_length",       # Pad to fixed length for consistent batch sizes
+            truncation=True,
+            max_length=128
+        )
+
+    # Apply tokenization and remove raw text
+    tokenized_datasets = dataset.map(tokenize_function, batched=True, remove_columns=["text"])
     
     # Training arguments
     training_args = TrainingArguments(
