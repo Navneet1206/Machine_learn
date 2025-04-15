@@ -1,79 +1,67 @@
-from transformers import DistilBertTokenizer, DistilBertModel
-import torch
+import os
 import numpy as np
+from sentence_transformers import SentenceTransformer
+from rich.console import Console
+
+class EmbeddingModel:
+    def __init__(self):
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+
+    def get_embedding(self, text):
+        return self.model.encode(text)
 
 class BusinessModelChatbot:
     def __init__(self):
-        """Initialize the chatbot by loading the model, tokenizer, and training data embeddings."""
-        print("Loading model and tokenizer...")
-        self.tokenizer = DistilBertTokenizer.from_pretrained("models/business_model")
-        self.model = DistilBertModel.from_pretrained("models/business_model")
-        self.device = torch.device("cpu")
-        self.model.to(self.device)
-        print("Model loaded successfully. Device set to use CPU.")
-        print("Loading training data embeddings...")
+        self.console = Console()
+        self.embedder = EmbeddingModel()
+        self.chat_history = []
+        self.console.print("🤖 [bold green]Initializing Chatbot...[/bold green]")
         self.data_embeddings, self.data_sentences = self.load_training_data()
-        print("Training data loaded.")
+        self.console.print("✅ [bold cyan]Chatbot Ready![/bold cyan]")
 
     def load_training_data(self):
-        """Load and process training data from business_data.txt, computing embeddings for each sentence."""
-        with open("data/processed/business_data.txt", "r") as f:
-            lines = f.readlines()
+        file_path = "D:/Downloads-folder/GPT Help/Machine_learn/business_chatbot/data/processed/business_data.txt"
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Missing training data at {file_path}")
+
+        with open(file_path, "r", encoding='utf-8') as f:
+            lines = [line.strip() for line in f if line.strip()]
+        
         sentences = []
         for line in lines:
-            line = line.strip()
-            if line:
-                # Split each line (page) into sentences
-                page_sentences = [s.strip() for s in line.split('. ') if s.strip()]
-                sentences.extend(page_sentences)
-        embeddings = []
-        for sent in sentences:
-            embedding = self.get_embedding(sent)
-            embeddings.append(embedding)
+            page_sentences = [s.strip() for s in line.split('. ') if s.strip()]
+            sentences.extend(page_sentences)
+
+        embeddings = [self.embedder.get_embedding(sent) for sent in sentences]
         return np.array(embeddings), sentences
 
-    def get_embedding(self, text):
-        """Generate an embedding for the given text using DistilBERT."""
-        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128).to(self.device)
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-        # Use the [CLS] token embedding from the last hidden state
-        embedding = outputs.last_hidden_state[:, 0, :].cpu().numpy().flatten()
-        return embedding
-
     def get_response(self, user_input):
-        """Retrieve the most relevant response based on the user's input."""
-        input_embedding = self.get_embedding(user_input)
-        # Compute cosine similarity between input embedding and data embeddings
-        dot_products = np.dot(self.data_embeddings, input_embedding)
-        data_norms = np.linalg.norm(self.data_embeddings, axis=1)
-        input_norm = np.linalg.norm(input_embedding)
-        similarities = dot_products / (data_norms * input_norm + 1e-8)  # Avoid division by zero
-        # Get top 3 most similar sentences
+        self.chat_history.append(user_input)
+        context_input = " ".join(self.chat_history[-3:])
+        input_embedding = self.embedder.get_embedding(context_input)
+
+        similarities = np.dot(self.data_embeddings, input_embedding) / (
+            np.linalg.norm(self.data_embeddings, axis=1) * np.linalg.norm(input_embedding) + 1e-8
+        )
         top_indices = np.argsort(similarities)[-3:][::-1]
-        responses = [self.data_sentences[i] for i in top_indices]
-        return responses[0], responses  # Return best response and alternatives
+        best_response = self.data_sentences[top_indices[0]]
+        return best_response
 
     def start_chat(self):
-        """Start the interactive chat session."""
-        print("\n🤖 Business Model Chatbot: Ask me anything about business models!")
-        print("💡 Tip: Try asking 'What is a revenue model?', or just type 'value proposition'")
-        print("Type 'quit' to exit.\n")
+        self.console.print("\n🤖 [bold green]Business Model Chatbot[/bold green] at your service!")
+        self.console.print("💡 Ask me about business models. Type 'quit' to exit.\n")
+
         while True:
-            user_input = input("You: ")
+            user_input = input("You: ").strip()
             if user_input.lower() == 'quit':
-                print("👋 Chatbot: Goodbye!")
+                self.console.print("👋 Goodbye!")
                 break
             try:
-                best_response, alternatives = self.get_response(user_input)
-                print(f"Chatbot: {best_response}")
-                # Uncomment below to show alternative responses
-                # print("Other suggestions:")
-                # for i, alt in enumerate(alternatives[1:], 1):
-                #     print(f"  {i+1}. {alt}")
+                response = self.get_response(user_input)
+                self.console.print(f"[bold blue]Chatbot:[/bold blue] {response}")
             except Exception as e:
-                print(f"⚠️ Error: {str(e)}")
+                self.console.print(f"[red]⚠️ Error: {str(e)}[/red]")
 
 if __name__ == "__main__":
-    chatbot = BusinessModelChatbot()
-    chatbot.start_chat()
+    bot = BusinessModelChatbot()
+    bot.start_chat()
